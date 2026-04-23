@@ -316,7 +316,6 @@ const keysRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const ffhUser = (ctx as any).ffhUser;
-      // Reseller: check credits and no custom keys
       if (ffhUser.role === "reseller") {
         if (input.customSuffix) throw new TRPCError({ code: "FORBIDDEN", message: "Revendedores não podem criar keys personalizadas" });
         if (ffhUser.credits <= 0) throw new TRPCError({ code: "FORBIDDEN", message: "Créditos insuficientes" });
@@ -341,6 +340,51 @@ const keysRouter = router({
       if (ffhUser.role === "reseller") await spendCredit(ffhUser.id);
       await createLog({ type: "key_created", message: `Key criada: ${keyStr}`, userId: ffhUser.id, keyId: key?.id });
       return key;
+    }),
+
+  createBulk: resellerOrAdminProcedure
+    .input(z.object({
+      prefix: z.string().min(1),
+      packageId: z.number(),
+      durationDays: z.number().int().min(1),
+      maxDevices: z.number().int().min(1).default(1),
+      count: z.number().int().min(1).max(100).default(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const ffhUser = (ctx as any).ffhUser;
+      if (ffhUser.role === "reseller") {
+        if (ffhUser.credits < input.count) throw new TRPCError({ code: "FORBIDDEN", message: `Créditos insuficientes para gerar ${input.count} keys` });
+      }
+      const pkg = await getPackageById(input.packageId);
+      if (!pkg) throw new TRPCError({ code: "NOT_FOUND", message: "Package não encontrado" });
+      if (ffhUser.role !== "admin" && pkg.ownerId !== ffhUser.id) throw new TRPCError({ code: "FORBIDDEN", message: "Package não pertence a você" });
+      
+      const duration = buildDurationLabel(input.durationDays);
+      const createdKeys = [];
+      
+      for (let i = 0; i < input.count; i++) {
+        const keyStr = generateKey(input.prefix, duration);
+        const key = await createLicenseKey({
+          key: keyStr,
+          prefix: input.prefix.toUpperCase(),
+          duration,
+          durationDays: input.durationDays,
+          packageId: input.packageId,
+          ownerId: ffhUser.role === "admin" ? null : ffhUser.id,
+          maxDevices: input.maxDevices,
+          isCustom: false,
+        });
+        if (ffhUser.role === "reseller") await spendCredit(ffhUser.id);
+        createdKeys.push(keyStr);
+      }
+      
+      await createLog({ 
+        type: "key_created", 
+        message: `${input.count} keys criadas em massa pelo prefixo ${input.prefix}`, 
+        userId: ffhUser.id 
+      });
+      
+      return { keys: createdKeys };
     }),
 
   action: resellerOrAdminProcedure

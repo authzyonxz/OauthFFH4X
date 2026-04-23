@@ -222,6 +222,40 @@
 }
 .ffh-table tr:hover td { background: oklch(0.12 0.015 260); }
 
+/* ─── Responsive Table Utilities ───────────────────────────────────────────── */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+@media (max-width: 768px) {
+  .ffh-table thead { display: none; }
+  .ffh-table, .ffh-table tbody, .ffh-table tr, .ffh-table td { display: block; width: 100%; }
+  .ffh-table tr { 
+    margin-bottom: 1rem; 
+    border: 1px solid oklch(0.2 0.02 260); 
+    border-radius: 0.75rem; 
+    background: oklch(0.12 0.015 260);
+    padding: 0.5rem;
+  }
+  .ffh-table td { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 0.5rem 0.75rem; 
+    border-bottom: 1px solid oklch(0.18 0.02 260 / 0.5);
+    text-align: right;
+  }
+  .ffh-table td:last-child { border-bottom: none; }
+  .ffh-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: oklch(0.5 0.02 260);
+    text-align: left;
+  }
+  .ffh-table td .key-badge { font-size: 0.8rem; }
+}
+
 /* ─── Animations ───────────────────────────────────────────────────────────── */
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 8px oklch(0.65 0.18 145 / 0.3); }

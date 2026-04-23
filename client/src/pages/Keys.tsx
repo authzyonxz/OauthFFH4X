@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Copy, Pause, Ban, Trash2, CalendarPlus, Play, Search, Key, Shield, Monitor, Clock } from "lucide-react";
+import { Plus, Copy, Pause, Ban, Trash2, CalendarPlus, Play, Search, Key, Shield, Monitor, Clock, CheckCircle2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -37,6 +37,7 @@ export default function Keys() {
   const utils = trpc.useUtils();
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [showSuccess, setShowSuccess] = useState<string[] | null>(null);
   const [showAction, setShowAction] = useState<{ key: any; action: string } | null>(null);
   const [actionReason, setActionReason] = useState("");
   const [actionDays, setActionDays] = useState("7");
@@ -48,18 +49,19 @@ export default function Keys() {
     durationDays: "30",
     maxDevices: "1",
     customSuffix: "",
+    count: "1",
   });
 
   const { data: keys = [], isLoading } = trpc.keys.list.useQuery();
   const { data: packages = [] } = trpc.packages.list.useQuery();
   const { data: prefixes = [] } = trpc.prefixes.list.useQuery();
 
-  const createMutation = trpc.keys.create.useMutation({
-    onSuccess: (key) => {
-      toast.success(`Key criada: ${key?.key}`);
+  const createBulkMutation = trpc.keys.createBulk.useMutation({
+    onSuccess: (res) => {
+      setShowSuccess(res.keys);
       utils.keys.list.invalidate();
       setShowCreate(false);
-      setForm({ prefix: "", packageId: "", durationDays: "30", maxDevices: "1", customSuffix: "" });
+      setForm({ prefix: "", packageId: "", durationDays: "30", maxDevices: "1", customSuffix: "", count: "1" });
     },
     onError: (e) => toast.error(e.message),
   });
@@ -79,12 +81,12 @@ export default function Keys() {
       toast.error("Selecione prefixo e package");
       return;
     }
-    createMutation.mutate({
+    createBulkMutation.mutate({
       prefix: form.prefix,
       packageId: parseInt(form.packageId),
       durationDays: parseInt(form.durationDays),
       maxDevices: parseInt(form.maxDevices),
-      customSuffix: form.customSuffix || undefined,
+      count: parseInt(form.count),
     });
   };
 
@@ -101,6 +103,12 @@ export default function Keys() {
   const copyKey = (key: string) => {
     navigator.clipboard.writeText(key);
     toast.success("Key copiada!");
+  };
+
+  const copyAllKeys = () => {
+    if (!showSuccess) return;
+    navigator.clipboard.writeText(showSuccess.join("\n"));
+    toast.success("Todas as keys foram copiadas!");
   };
 
   const filtered = keys.filter((k: any) =>
@@ -136,28 +144,28 @@ export default function Keys() {
         />
       </div>
 
-      {/* Table */}
+      {/* Table Container */}
       <div className="rounded-xl overflow-hidden" style={{ background: "oklch(0.11 0.015 260)", border: "1px solid oklch(0.2 0.02 260)" }}>
-        <div className="overflow-x-auto">
-          <table className="ffh-table">
+        <div className="overflow-x-auto scrollbar-hide">
+          <table className="ffh-table w-full">
             <thead>
               <tr>
-                <th>Key</th>
-                <th>Status</th>
-                <th>Package</th>
-                <th>Duração</th>
-                <th>Dispositivo</th>
-                <th>Tempo Restante</th>
-                <th>Criada em</th>
-                <th>Ações</th>
+                <th className="text-left px-4 py-3">Key</th>
+                <th className="text-left px-4 py-3">Status</th>
+                <th className="text-left px-4 py-3">Package</th>
+                <th className="text-left px-4 py-3">Duração</th>
+                <th className="text-left px-4 py-3">Dispositivo</th>
+                <th className="text-left px-4 py-3">Tempo Restante</th>
+                <th className="text-left px-4 py-3">Criada em</th>
+                <th className="text-right px-4 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
+                  <tr key={i} className="border-t border-[oklch(0.18_0.02_260)]">
                     {Array.from({ length: 8 }).map((_, j) => (
-                      <td key={j}><div className="h-4 rounded animate-pulse" style={{ background: "oklch(0.18 0.02 260)" }} /></td>
+                      <td key={j} className="px-4 py-4"><div className="h-4 rounded animate-pulse" style={{ background: "oklch(0.18 0.02 260)" }} /></td>
                     ))}
                   </tr>
                 ))
@@ -172,73 +180,73 @@ export default function Keys() {
                 filtered.map((key: any) => {
                   const pkg = packages.find((p: any) => p.id === key.packageId);
                   return (
-                    <tr key={key.id}>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <span className="key-badge">{key.key}</span>
-                          <button onClick={() => copyKey(key.key)} className="opacity-40 hover:opacity-100 transition-opacity">
+                    <tr key={key.id} className="border-t border-[oklch(0.18_0.02_260)] hover:bg-[oklch(0.13_0.015_260)] transition-colors">
+                      <td className="px-4 py-4" data-label="Key">
+                        <div className="flex items-center gap-2 justify-end md:justify-start">
+                          <span className="key-badge font-mono text-[13px] tracking-wider">{key.key}</span>
+                          <button onClick={() => copyKey(key.key)} className="opacity-40 hover:opacity-100 transition-opacity p-1">
                             <Copy className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.22 260)" }} />
                           </button>
                         </div>
                       </td>
-                      <td><StatusPill status={key.status} /></td>
-                      <td>
-                        <span className="text-xs px-2 py-1 rounded" style={{ background: "oklch(0.16 0.02 260)", color: "oklch(0.7 0.02 260)" }}>
+                      <td className="px-4 py-4" data-label="Status"><StatusPill status={key.status} /></td>
+                      <td className="px-4 py-4" data-label="Package">
+                        <span className="text-xs px-2 py-1 rounded font-medium" style={{ background: "oklch(0.16 0.02 260)", color: "oklch(0.7 0.02 260)" }}>
                           {pkg?.name || `#${key.packageId}`}
                         </span>
                       </td>
-                      <td>
+                      <td className="px-4 py-4" data-label="Duração">
                         <span className="font-mono text-xs" style={{ color: "oklch(0.7 0.15 260)" }}>{key.duration}</span>
                       </td>
-                      <td>
-                        <div className="flex items-center gap-1.5">
+                      <td className="px-4 py-4" data-label="Dispositivo">
+                        <div className="flex items-center gap-1.5 justify-end md:justify-start">
                           <Monitor className="w-3.5 h-3.5" style={{ color: "oklch(0.5 0.02 260)" }} />
                           <span className="text-xs" style={{ color: "oklch(0.65 0.02 260)" }}>
                             {key.maxDevices} máx.
                           </span>
                         </div>
                       </td>
-                      <td>
-                        <span className="text-xs font-mono" style={{ color: key.secondsRemaining > 0 ? "oklch(0.65 0.18 145)" : "oklch(0.55 0.22 25)" }}>
+                      <td className="px-4 py-4" data-label="Tempo Restante">
+                        <span className="text-xs font-mono font-bold" style={{ color: key.secondsRemaining > 0 ? "oklch(0.65 0.18 145)" : "oklch(0.55 0.22 25)" }}>
                           {formatSeconds(key.secondsRemaining)}
                         </span>
                       </td>
-                      <td>
+                      <td className="px-4 py-4" data-label="Criada em">
                         <span className="text-xs" style={{ color: "oklch(0.45 0.02 260)" }}>
                           {formatDistanceToNow(new Date(key.createdAt), { addSuffix: true, locale: ptBR })}
                         </span>
                       </td>
-                      <td>
-                        <div className="flex items-center gap-1">
+                      <td className="px-4 py-4 text-right" data-label="Ações">
+                        <div className="flex items-center justify-end gap-1">
                           {key.isPaused ? (
                             <button onClick={() => setShowAction({ key, action: "unpause" })} title="Reativar"
-                              className="p-1.5 rounded hover:bg-green-500/10 transition-colors">
-                              <Play className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.18 145)" }} />
+                              className="p-2 rounded-lg hover:bg-green-500/10 transition-colors">
+                              <Play className="w-4 h-4" style={{ color: "oklch(0.65 0.18 145)" }} />
                             </button>
                           ) : (
                             <button onClick={() => setShowAction({ key, action: "pause" })} title="Pausar"
-                              className="p-1.5 rounded hover:bg-yellow-500/10 transition-colors">
-                              <Pause className="w-3.5 h-3.5" style={{ color: "oklch(0.75 0.18 85)" }} />
+                              className="p-2 rounded-lg hover:bg-yellow-500/10 transition-colors">
+                              <Pause className="w-4 h-4" style={{ color: "oklch(0.75 0.18 85)" }} />
                             </button>
                           )}
                           {key.isBanned ? (
                             <button onClick={() => actionMutation.mutate({ keyId: key.id, action: "unban" })} title="Desbanir"
-                              className="p-1.5 rounded hover:bg-green-500/10 transition-colors">
-                              <Shield className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.18 145)" }} />
+                              className="p-2 rounded-lg hover:bg-green-500/10 transition-colors">
+                              <Shield className="w-4 h-4" style={{ color: "oklch(0.65 0.18 145)" }} />
                             </button>
                           ) : (
                             <button onClick={() => setShowAction({ key, action: "ban" })} title="Banir"
-                              className="p-1.5 rounded hover:bg-red-500/10 transition-colors">
-                              <Ban className="w-3.5 h-3.5" style={{ color: "oklch(0.55 0.22 25)" }} />
+                              className="p-2 rounded-lg hover:bg-red-500/10 transition-colors">
+                              <Ban className="w-4 h-4" style={{ color: "oklch(0.55 0.22 25)" }} />
                             </button>
                           )}
                           <button onClick={() => setShowAction({ key, action: "add_days" })} title="Adicionar dias"
-                            className="p-1.5 rounded hover:bg-blue-500/10 transition-colors">
-                            <CalendarPlus className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.22 260)" }} />
+                            className="p-2 rounded-lg hover:bg-blue-500/10 transition-colors">
+                            <CalendarPlus className="w-4 h-4" style={{ color: "oklch(0.65 0.22 260)" }} />
                           </button>
                           <button onClick={() => setShowAction({ key, action: "delete" })} title="Excluir"
-                            className="p-1.5 rounded hover:bg-red-500/10 transition-colors">
-                            <Trash2 className="w-3.5 h-3.5" style={{ color: "oklch(0.55 0.22 25)" }} />
+                            className="p-2 rounded-lg hover:bg-red-500/10 transition-colors">
+                            <Trash2 className="w-4 h-4" style={{ color: "oklch(0.55 0.22 25)" }} />
                           </button>
                         </div>
                       </td>
@@ -251,185 +259,165 @@ export default function Keys() {
         </div>
       </div>
 
-      {/* Create Dialog */}
+      {/* Create Modal */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent style={{ background: "oklch(0.11 0.015 260)", border: "1px solid oklch(0.22 0.02 260)" }}>
+        <DialogContent className="max-w-md" style={{ background: "oklch(0.12 0.015 260)", border: "1px solid oklch(0.22 0.02 260)" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: "oklch(0.92 0.01 260)" }}>
-              <Key className="w-4 h-4 inline mr-2" style={{ color: "oklch(0.65 0.22 260)" }} />
-              Criar Nova Key
-            </DialogTitle>
+            <DialogTitle style={{ color: "oklch(0.95 0.01 260)" }}>Gerar Novas Keys</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div className="space-y-1.5">
-              <Label style={{ color: "oklch(0.7 0.02 260)" }}>Prefixo</Label>
-              <Select value={form.prefix} onValueChange={v => setForm(f => ({ ...f, prefix: v }))}>
-                <SelectTrigger style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)", color: "oklch(0.88 0.01 260)" }}>
-                  <SelectValue placeholder="Selecionar prefixo" />
-                </SelectTrigger>
-                <SelectContent style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)" }}>
-                  {prefixes.map((p: any) => (
-                    <SelectItem key={p.id} value={p.name} style={{ color: "oklch(0.88 0.01 260)" }}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Prefixo</Label>
+                <Select value={form.prefix} onValueChange={v => setForm({ ...form, prefix: v })}>
+                  <SelectTrigger style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
+                    {prefixes.map((p: any) => (
+                      <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Package</Label>
+                <Select value={form.packageId} onValueChange={v => setForm({ ...form, packageId: v })}>
+                  <SelectTrigger style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
+                    {packages.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label style={{ color: "oklch(0.7 0.02 260)" }}>Package</Label>
-              <Select value={form.packageId} onValueChange={v => setForm(f => ({ ...f, packageId: v }))}>
-                <SelectTrigger style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)", color: "oklch(0.88 0.01 260)" }}>
-                  <SelectValue placeholder="Selecionar package" />
-                </SelectTrigger>
-                <SelectContent style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)" }}>
-                  {packages.map((p: any) => (
-                    <SelectItem key={p.id} value={String(p.id)} style={{ color: "oklch(0.88 0.01 260)" }}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label style={{ color: "oklch(0.7 0.02 260)" }}>Duração</Label>
-              <Select value={form.durationDays} onValueChange={v => setForm(f => ({ ...f, durationDays: v }))}>
-                <SelectTrigger style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)", color: "oklch(0.88 0.01 260)" }}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)" }}>
-                  <SelectItem value="1" style={{ color: "oklch(0.88 0.01 260)" }}>1 dia (1day)</SelectItem>
-                  <SelectItem value="7" style={{ color: "oklch(0.88 0.01 260)" }}>7 dias (7day)</SelectItem>
-                  <SelectItem value="30" style={{ color: "oklch(0.88 0.01 260)" }}>30 dias (30day)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Dias personalizados</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Duração (Dias)</Label>
                 <Input
                   type="number"
-                  min="1"
-                  placeholder="Ex: 3"
                   value={form.durationDays}
-                  onChange={e => setForm(f => ({ ...f, durationDays: e.target.value }))}
-                  style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)", color: "oklch(0.88 0.01 260)" }}
+                  onChange={e => setForm({ ...form, durationDays: e.target.value })}
+                  style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Máx. dispositivos</Label>
+              <div className="space-y-2">
+                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Quantidade</Label>
                 <Input
                   type="number"
                   min="1"
-                  value={form.maxDevices}
-                  onChange={e => setForm(f => ({ ...f, maxDevices: e.target.value }))}
-                  style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)", color: "oklch(0.88 0.01 260)" }}
+                  max="100"
+                  value={form.count}
+                  onChange={e => setForm({ ...form, count: e.target.value })}
+                  style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}
                 />
               </div>
             </div>
 
-            {user?.role === "admin" && (
-              <div className="space-y-1.5">
-                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Prefixo personalizado (opcional)</Label>
-                <Input
-                  placeholder="Ex: HAPPYBIRTHDAY"
-                  value={form.customSuffix}
-                  onChange={e => setForm(f => ({ ...f, customSuffix: e.target.value.toUpperCase() }))}
-                  className="font-mono"
-                  style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)", color: "oklch(0.88 0.01 260)" }}
-                />
-                <p className="text-xs" style={{ color: "oklch(0.45 0.02 260)" }}>
-                  Resultado: {form.customSuffix || form.prefix || "PREFIXO"}-{form.durationDays}day-XXXXXXXXXXXXXXX
-                </p>
-              </div>
-            )}
-
-            {user?.role === "reseller" && (
-              <div className="rounded-lg p-3" style={{ background: "oklch(0.75 0.18 85 / 0.08)", border: "1px solid oklch(0.75 0.18 85 / 0.2)" }}>
-                <p className="text-xs" style={{ color: "oklch(0.75 0.18 85)" }}>
-                  💳 Esta ação consumirá 1 crédito. Você tem {user.credits} créditos disponíveis.
-                </p>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" onClick={() => setShowCreate(false)} className="flex-1"
-                style={{ borderColor: "oklch(0.22 0.02 260)", color: "oklch(0.7 0.02 260)" }}>
-                Cancelar
-              </Button>
-              <Button onClick={handleCreate} disabled={createMutation.isPending} className="flex-1"
-                style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 260), oklch(0.6 0.22 290))", color: "oklch(0.98 0.005 260)" }}>
-                {createMutation.isPending ? "Criando..." : "Criar Key"}
-              </Button>
+            <div className="space-y-2">
+              <Label style={{ color: "oklch(0.7 0.02 260)" }}>Máx. Dispositivos</Label>
+              <Input
+                type="number"
+                value={form.maxDevices}
+                onChange={e => setForm({ ...form, maxDevices: e.target.value })}
+                style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}
+              />
             </div>
           </div>
+          <DialogFooter>
+            <Button onClick={handleCreate} className="w-full" disabled={createBulkMutation.isPending}
+              style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 260), oklch(0.6 0.22 290))" }}>
+              {createBulkMutation.isPending ? "Gerando..." : `Gerar ${form.count} Keys`}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Action Dialog */}
-      <Dialog open={!!showAction} onOpenChange={() => setShowAction(null)}>
-        <DialogContent style={{ background: "oklch(0.11 0.015 260)", border: "1px solid oklch(0.22 0.02 260)" }}>
+      {/* Success Modal */}
+      <Dialog open={!!showSuccess} onOpenChange={() => setShowSuccess(null)}>
+        <DialogContent className="max-w-md" style={{ background: "oklch(0.12 0.015 260)", border: "1px solid oklch(0.22 0.02 260)" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: "oklch(0.92 0.01 260)" }}>
-              {showAction?.action === "ban" && "Banir Key"}
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle2 className="w-6 h-6 text-green-500" />
+              <DialogTitle style={{ color: "oklch(0.95 0.01 260)" }}>Keys Geradas com Sucesso!</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="max-h-[300px] overflow-y-auto rounded-lg p-3 space-y-2" style={{ background: "oklch(0.08 0.01 260)", border: "1px solid oklch(0.2 0.02 260)" }}>
+              {showSuccess?.map((k, i) => (
+                <div key={i} className="flex items-center justify-between group border-b border-[oklch(0.18_0.02_260)] last:border-0 pb-2 last:pb-0">
+                  <code className="text-sm font-mono text-[oklch(0.75_0.15_260)]">{k}</code>
+                  <button onClick={() => copyKey(k)} className="opacity-40 group-hover:opacity-100 transition-opacity p-1">
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button onClick={copyAllKeys} className="flex-1 gap-2" variant="secondary" style={{ background: "oklch(0.65 0.22 260 / 0.2)", color: "oklch(0.75 0.15 260)" }}>
+              <Copy className="w-4 h-4" /> Copiar Todas
+            </Button>
+            <Button onClick={() => setShowSuccess(null)} className="flex-1" variant="outline">
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Action Modal */}
+      <Dialog open={!!showAction} onOpenChange={() => setShowAction(null)}>
+        <DialogContent className="max-w-sm" style={{ background: "oklch(0.12 0.015 260)", border: "1px solid oklch(0.22 0.02 260)" }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: "oklch(0.95 0.01 260)" }}>
               {showAction?.action === "pause" && "Pausar Key"}
               {showAction?.action === "unpause" && "Reativar Key"}
-              {showAction?.action === "delete" && "Excluir Key"}
+              {showAction?.action === "ban" && "Banir Key"}
               {showAction?.action === "add_days" && "Adicionar Dias"}
+              {showAction?.action === "delete" && "Excluir Key"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
-            {showAction?.key && (
-              <div className="rounded-lg p-3" style={{ background: "oklch(0.14 0.02 260)" }}>
-                <span className="key-badge">{showAction.key.key}</span>
-              </div>
-            )}
-            {(showAction?.action === "ban") && (
-              <div className="space-y-1.5">
-                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Motivo (opcional)</Label>
+          <div className="py-4 space-y-4">
+            <p className="text-sm" style={{ color: "oklch(0.7 0.02 260)" }}>
+              Tem certeza que deseja realizar esta ação na key <span className="font-mono font-bold">{showAction?.key.key}</span>?
+            </p>
+            {(showAction?.action === "ban" || showAction?.action === "pause") && (
+              <div className="space-y-2">
+                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Motivo (Opcional)</Label>
                 <Input
-                  placeholder="Motivo do banimento..."
+                  placeholder="Ex: Abuso de sistema"
                   value={actionReason}
                   onChange={e => setActionReason(e.target.value)}
-                  style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)", color: "oklch(0.88 0.01 260)" }}
+                  style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}
                 />
               </div>
             )}
             {showAction?.action === "add_days" && (
-              <div className="space-y-1.5">
-                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Dias a adicionar</Label>
+              <div className="space-y-2">
+                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Quantidade de Dias</Label>
                 <Input
                   type="number"
-                  min="1"
                   value={actionDays}
                   onChange={e => setActionDays(e.target.value)}
-                  style={{ background: "oklch(0.14 0.015 260)", border: "1px solid oklch(0.22 0.02 260)", color: "oklch(0.88 0.01 260)" }}
+                  style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}
                 />
               </div>
             )}
-            {showAction?.action === "delete" && (
-              <p className="text-sm" style={{ color: "oklch(0.65 0.18 25)" }}>
-                Esta ação é irreversível. A key será excluída permanentemente.
-              </p>
-            )}
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowAction(null)} className="flex-1"
-                style={{ borderColor: "oklch(0.22 0.02 260)", color: "oklch(0.7 0.02 260)" }}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={() => handleAction(showAction!.action)}
-                disabled={actionMutation.isPending}
-                className="flex-1"
-                style={{
-                  background: showAction?.action === "delete" || showAction?.action === "ban"
-                    ? "oklch(0.55 0.22 25)"
-                    : "linear-gradient(135deg, oklch(0.65 0.22 260), oklch(0.6 0.22 290))",
-                  color: "oklch(0.98 0.005 260)"
-                }}>
-                {actionMutation.isPending ? "Processando..." : "Confirmar"}
-              </Button>
-            </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAction(null)}>Cancelar</Button>
+            <Button
+              variant={showAction?.action === "delete" || showAction?.action === "ban" ? "destructive" : "default"}
+              onClick={() => handleAction(showAction!.action)}
+              disabled={actionMutation.isPending}
+            >
+              Confirmar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
