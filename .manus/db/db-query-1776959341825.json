@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `app_users` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `username` varchar(64) NOT NULL,\n  `password_hash` varchar(255) NOT NULL,\n  `role` enum('admin','reseller') NOT NULL DEFAULT 'reseller',\n  `plan` enum('monthly','annual') DEFAULT 'monthly',\n  `credits` int NOT NULL DEFAULT 0,\n  `is_banned` boolean NOT NULL DEFAULT false,\n  `ban_reason` text,\n  `ban_expires_at` timestamp NULL,\n  `account_expires_at` timestamp NULL,\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n  `last_login_at` timestamp NULL,\n  `last_login_ip` varchar(64),\n  CONSTRAINT `app_users_id` PRIMARY KEY(`id`),\n  CONSTRAINT `app_users_username_unique` UNIQUE(`username`)\n)",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 21zLAtqNHtpiEn2.root --database BoZ6odrEw47u6QSU3fSBP8 --execute CREATE TABLE IF NOT EXISTS `app_users` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `username` varchar(64) NOT NULL,\n  `password_hash` varchar(255) NOT NULL,\n  `role` enum('admin','reseller') NOT NULL DEFAULT 'reseller',\n  `plan` enum('monthly','annual') DEFAULT 'monthly',\n  `credits` int NOT NULL DEFAULT 0,\n  `is_banned` boolean NOT NULL DEFAULT false,\n  `ban_reason` text,\n  `ban_expires_at` timestamp NULL,\n  `account_expires_at` timestamp NULL,\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n  `last_login_at` timestamp NULL,\n  `last_login_ip` varchar(64),\n  CONSTRAINT `app_users_id` PRIMARY KEY(`id`),\n  CONSTRAINT `app_users_username_unique` UNIQUE(`username`)\n)",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 968
+}
