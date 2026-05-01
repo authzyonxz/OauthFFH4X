@@ -74,6 +74,7 @@ export const licenseKeys = mysqlTable("license_keys", {
   maxDevices: int("max_devices").default(1).notNull(),
   isActivated: boolean("is_activated").default(false).notNull(),
   isCustom: boolean("is_custom").default(false).notNull(),
+  isUniversal: boolean("is_universal").default(false).notNull(),
   isPaused: boolean("is_paused").default(false).notNull(),
   isBanned: boolean("is_banned").default(false).notNull(),
   banReason: text("ban_reason"),

@@ -211,25 +211,21 @@ const packagesRouter = router({
     return listPackages(ffhUser.id);
   }),
 
-  create: resellerOrAdminProcedure
+  create: adminProcedure
     .input(z.object({ name: z.string().min(2).max(128) }))
     .mutation(async ({ input, ctx }) => {
       const ffhUser = (ctx as any).ffhUser;
-      if (ffhUser.role === "reseller") {
-        const existing = await listPackages(ffhUser.id);
-        if (existing.length >= 3) throw new TRPCError({ code: "FORBIDDEN", message: "Limite de 3 packages atingido" });
-      }
       const token = generatePackageToken();
       const pkg = await createPackage({
         name: input.name,
         token,
-        ownerId: ffhUser.role === "admin" ? null : ffhUser.id,
+        ownerId: null,
       });
-      await createLog({ type: "package_created", message: `Package '${input.name}' criado`, userId: ffhUser.id, packageId: pkg?.id });
+      await createLog({ type: "package_created", message: `Package '${input.name}' criado por admin`, userId: ffhUser.id, packageId: pkg?.id });
       return pkg;
     }),
 
-  update: resellerOrAdminProcedure
+  update: adminProcedure
     .input(z.object({
       packageId: z.number(),
       isPaused: z.boolean().optional(),
@@ -266,29 +262,24 @@ const prefixesRouter = router({
     return listPrefixes(ffhUser.id);
   }),
 
-  create: resellerOrAdminProcedure
+  create: adminProcedure
     .input(z.object({ name: z.string().min(2).max(64).regex(/^[A-Z0-9_]+$/i, "Apenas letras, números e _") }))
     .mutation(async ({ input, ctx }) => {
       const ffhUser = (ctx as any).ffhUser;
-      if (ffhUser.role === "reseller") {
-        const existing = await listPrefixes(ffhUser.id);
-        if (existing.length >= 3) throw new TRPCError({ code: "FORBIDDEN", message: "Limite de 3 prefixos atingido" });
-      }
       const prefix = await createPrefix({
         name: input.name.toUpperCase(),
-        ownerId: ffhUser.role === "admin" ? null : ffhUser.id,
+        ownerId: null,
       });
+      await createLog({ type: "admin_action", message: `Prefixo '${input.name}' criado por admin`, userId: ffhUser.id });
       return prefix;
     }),
 
-  delete: resellerOrAdminProcedure
+  delete: adminProcedure
     .input(z.object({ prefixId: z.number() }))
     .mutation(async ({ input, ctx }) => {
       const ffhUser = (ctx as any).ffhUser;
-      const allPrefixes = await listPrefixes(ffhUser.role === "admin" ? undefined : ffhUser.id);
-      const found = allPrefixes.find(p => p.id === input.prefixId);
-      if (!found) throw new TRPCError({ code: "NOT_FOUND" });
       await deletePrefix(input.prefixId);
+      await createLog({ type: "admin_action", message: `Prefixo ID ${input.prefixId} excluído por admin`, userId: ffhUser.id });
       return { success: true };
     }),
 });
@@ -308,37 +299,63 @@ const keysRouter = router({
 
   create: resellerOrAdminProcedure
     .input(z.object({
-      prefix: z.string().min(1),
-      packageId: z.number(),
+      prefix: z.string().min(1).optional(),
+      packageId: z.number().optional(),
       durationDays: z.number().int().min(1),
       maxDevices: z.number().int().min(1).default(1),
       customSuffix: z.string().optional(),
+      isUniversal: z.boolean().default(false),
     }))
     .mutation(async ({ input, ctx }) => {
       const ffhUser = (ctx as any).ffhUser;
+      
+      if (input.isUniversal && ffhUser.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem criar keys universais" });
+      }
+
       if (ffhUser.role === "reseller") {
         if (input.customSuffix) throw new TRPCError({ code: "FORBIDDEN", message: "Revendedores não podem criar keys personalizadas" });
         if (ffhUser.credits <= 0) throw new TRPCError({ code: "FORBIDDEN", message: "Créditos insuficientes" });
       }
-      const pkg = await getPackageById(input.packageId);
-      if (!pkg) throw new TRPCError({ code: "NOT_FOUND", message: "Package não encontrado" });
-      if (ffhUser.role !== "admin" && pkg.ownerId !== ffhUser.id) throw new TRPCError({ code: "FORBIDDEN", message: "Package não pertence a você" });
+
+      if (!input.isUniversal) {
+        if (!input.packageId) throw new TRPCError({ code: "BAD_REQUEST", message: "Package é obrigatório para keys normais" });
+        if (!input.prefix) throw new TRPCError({ code: "BAD_REQUEST", message: "Prefixo é obrigatório para keys normais" });
+        
+        const pkg = await getPackageById(input.packageId);
+        if (!pkg) throw new TRPCError({ code: "NOT_FOUND", message: "Package não encontrado" });
+        if (ffhUser.role !== "admin" && pkg.ownerId !== ffhUser.id) throw new TRPCError({ code: "FORBIDDEN", message: "Package não pertence a você" });
+      }
+
       const duration = buildDurationLabel(input.durationDays);
-      const keyStr = input.customSuffix
-        ? generateCustomKey(input.customSuffix, duration)
-        : generateKey(input.prefix, duration);
+      let keyStr: string;
+      
+      if (input.customSuffix) {
+        // Se tiver sufixo customizado (Key personalizada), usa ele
+        keyStr = input.customSuffix.toUpperCase();
+      } else {
+        keyStr = generateKey(input.prefix || "UNI", duration);
+      }
+
       const key = await createLicenseKey({
         key: keyStr,
-        prefix: input.prefix.toUpperCase(),
+        prefix: (input.prefix || "UNIVERSAL").toUpperCase(),
         duration,
         durationDays: input.durationDays,
-        packageId: input.packageId,
+        packageId: input.packageId || 0, // 0 para universal
         ownerId: ffhUser.role === "admin" ? null : ffhUser.id,
         maxDevices: input.maxDevices,
         isCustom: !!input.customSuffix,
+        isUniversal: input.isUniversal,
       });
+
       if (ffhUser.role === "reseller") await spendCredit(ffhUser.id);
-      await createLog({ type: "key_created", message: `Key criada: ${keyStr}`, userId: ffhUser.id, keyId: key?.id });
+      await createLog({ 
+        type: "key_created", 
+        message: `${input.isUniversal ? "Key Universal" : "Key"} criada: ${keyStr}`, 
+        userId: ffhUser.id, 
+        keyId: key?.id 
+      });
       return key;
     }),
 

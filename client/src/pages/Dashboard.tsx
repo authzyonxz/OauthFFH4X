@@ -51,14 +51,14 @@ export default function Dashboard() {
       color: "oklch(0.6 0.22 290)",
       bg: "oklch(0.6 0.22 290 / 0.1)",
     },
-    {
+    user?.role === "admin" ? {
       label: "Packages",
       value: data?.totalPackages ?? 0,
       icon: Package,
       color: "oklch(0.7 0.18 200)",
       bg: "oklch(0.7 0.18 200 / 0.1)",
-    },
-  ];
+    } : null,
+  ].filter(Boolean) as any[];
 
   return (
     <div className="space-y-6 fade-in-up">
@@ -74,7 +74,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className={`grid grid-cols-2 ${user?.role === "admin" ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-4">
         {stats.map((stat, i) => (
           <div key={i} className="stat-card fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
             <div className="flex items-start justify-between">

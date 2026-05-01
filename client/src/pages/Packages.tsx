@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useFFHAuth } from "@/contexts/FFHAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function Packages() {
+  const { user } = useFFHAuth();
   const utils = trpc.useUtils();
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState<any>(null);
@@ -57,10 +59,12 @@ export default function Packages() {
           <h1 className="text-2xl font-bold" style={{ color: "oklch(0.95 0.01 260)" }}>Packages</h1>
           <p className="text-sm mt-0.5" style={{ color: "oklch(0.5 0.02 260)" }}>{packages.length} packages</p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="gap-2"
-          style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 260), oklch(0.6 0.22 290))", color: "oklch(0.98 0.005 260)" }}>
-          <Plus className="w-4 h-4" /> Novo Package
-        </Button>
+        {user?.role === "admin" && (
+          <Button onClick={() => setShowCreate(true)} className="gap-2"
+            style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 260), oklch(0.6 0.22 290))", color: "oklch(0.98 0.005 260)" }}>
+            <Plus className="w-4 h-4" /> Novo Package
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -120,23 +124,25 @@ export default function Packages() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => togglePause(pkg)}
-                  className="flex-1 gap-1.5 text-xs h-8"
-                  style={{ borderColor: "oklch(0.22 0.02 260)", color: pkg.isPaused ? "oklch(0.65 0.18 145)" : "oklch(0.75 0.18 85)" }}>
-                  {pkg.isPaused ? <><Play className="w-3 h-3" /> Reativar</> : <><Pause className="w-3 h-3" /> Pausar</>}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => toggleForceUpdate(pkg)}
-                  className="flex-1 gap-1.5 text-xs h-8"
-                  style={{ borderColor: "oklch(0.22 0.02 260)", color: pkg.forceUpdate ? "oklch(0.65 0.18 145)" : "oklch(0.65 0.22 260)" }}>
-                  {pkg.forceUpdate ? <><CheckCircle className="w-3 h-3" /> Cancelar Update</> : <><Zap className="w-3 h-3" /> Forçar Update</>}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => { setShowEdit(pkg); setEditForm({ contactLink: pkg.contactLink || "", updateMessage: pkg.updateMessage || "" }); }}
-                  className="h-8 px-2.5"
-                  style={{ borderColor: "oklch(0.22 0.02 260)", color: "oklch(0.6 0.02 260)" }}>
-                  <Link className="w-3.5 h-3.5" />
-                </Button>
-              </div>
+              {user?.role === "admin" && (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => togglePause(pkg)}
+                    className="flex-1 gap-1.5 text-xs h-8"
+                    style={{ borderColor: "oklch(0.22 0.02 260)", color: pkg.isPaused ? "oklch(0.65 0.18 145)" : "oklch(0.75 0.18 85)" }}>
+                    {pkg.isPaused ? <><Play className="w-3 h-3" /> Reativar</> : <><Pause className="w-3 h-3" /> Pausar</>}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => toggleForceUpdate(pkg)}
+                    className="flex-1 gap-1.5 text-xs h-8"
+                    style={{ borderColor: "oklch(0.22 0.02 260)", color: pkg.forceUpdate ? "oklch(0.65 0.18 145)" : "oklch(0.65 0.22 260)" }}>
+                    {pkg.forceUpdate ? <><CheckCircle className="w-3 h-3" /> Cancelar Update</> : <><Zap className="w-3 h-3" /> Forçar Update</>}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setShowEdit(pkg); setEditForm({ contactLink: pkg.contactLink || "", updateMessage: pkg.updateMessage || "" }); }}
+                    className="h-8 px-2.5"
+                    style={{ borderColor: "oklch(0.22 0.02 260)", color: "oklch(0.6 0.02 260)" }}>
+                    <Link className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
           ))
         )}

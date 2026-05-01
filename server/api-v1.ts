@@ -96,7 +96,11 @@ router.post("/v1/validate_key", async (req: Request, res: Response) => {
     // Check package if provided
     if (package_token) {
       const pkg = await getPackageByToken(package_token);
-      if (!pkg || pkg.id !== key.packageId) {
+      if (!pkg) {
+        return apiResponse(res, 403, { status: "invalid", message: "Package inválido", expires_in: 0, device: "unauthorized" });
+      }
+      // Se não for universal, precisa bater o packageId
+      if (!key.isUniversal && pkg.id !== key.packageId) {
         return apiResponse(res, 403, { status: "invalid", message: "Key não pertence a este package", expires_in: 0, device: "unauthorized" });
       }
       if (pkg.isPaused) {

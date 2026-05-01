@@ -47,13 +47,15 @@ export default function Prefixes() {
             {prefixes.length}{user?.role === "reseller" ? "/3" : ""} prefixos
           </p>
         </div>
-        <Button
-          onClick={() => setShowCreate(true)}
-          disabled={prefixes.length >= limit}
-          className="gap-2"
-          style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 260), oklch(0.6 0.22 290))", color: "oklch(0.98 0.005 260)" }}>
-          <Plus className="w-4 h-4" /> Novo Prefixo
-        </Button>
+        {user?.role === "admin" && (
+          <Button
+            onClick={() => setShowCreate(true)}
+            disabled={prefixes.length >= limit}
+            className="gap-2"
+            style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 260), oklch(0.6 0.22 290))", color: "oklch(0.98 0.005 260)" }}>
+            <Plus className="w-4 h-4" /> Novo Prefixo
+          </Button>
+        )}
       </div>
 
       {user?.role === "reseller" && (
@@ -101,10 +103,12 @@ export default function Prefixes() {
                     </span>
                   </td>
                   <td>
-                    <button onClick={() => deleteMutation.mutate({ prefixId: p.id })}
-                      className="p-1.5 rounded hover:bg-red-500/10 transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" style={{ color: "oklch(0.55 0.22 25)" }} />
-                    </button>
+                    {user?.role === "admin" && (
+                      <button onClick={() => deleteMutation.mutate({ prefixId: p.id })}
+                        className="p-1.5 rounded hover:bg-red-500/10 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: "oklch(0.55 0.22 25)" }} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))

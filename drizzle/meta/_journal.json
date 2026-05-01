@@ -15,6 +15,13 @@
       "when": 1776959322416,
       "tag": "0001_slimy_katie_power",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1776959500000,
+      "tag": "0002_add_is_universal",
+      "breakpoints": true
     }
   ]
 }

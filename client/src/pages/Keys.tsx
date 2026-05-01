@@ -50,6 +50,7 @@ export default function Keys() {
     maxDevices: "1",
     customSuffix: "",
     count: "1",
+    isUniversal: false,
   });
 
   const { data: keys = [], isLoading } = trpc.keys.list.useQuery();
@@ -77,16 +78,18 @@ export default function Keys() {
   });
 
   const handleCreate = () => {
-    if (!form.prefix || !form.packageId) {
+    if (!form.isUniversal && (!form.prefix || !form.packageId)) {
       toast.error("Selecione prefixo e package");
       return;
     }
     createBulkMutation.mutate({
-      prefix: form.prefix,
-      packageId: parseInt(form.packageId),
+      prefix: form.isUniversal ? undefined : form.prefix,
+      packageId: form.isUniversal ? undefined : parseInt(form.packageId),
       durationDays: parseInt(form.durationDays),
       maxDevices: parseInt(form.maxDevices),
       count: parseInt(form.count),
+      customSuffix: form.customSuffix || undefined,
+      isUniversal: form.isUniversal,
     });
   };
 
@@ -183,7 +186,9 @@ export default function Keys() {
                     <tr key={key.id} className="border-t border-[oklch(0.18_0.02_260)] hover:bg-[oklch(0.13_0.015_260)] transition-colors">
                       <td className="px-4 py-4" data-label="Key">
                         <div className="flex items-center gap-2 justify-end md:justify-start">
-                          <span className="key-badge font-mono text-[13px] tracking-wider">{key.key}</span>
+                          <span className="key-badge font-mono text-[13px] tracking-wider" style={key.isUniversal ? { borderColor: "oklch(0.65 0.22 260)", color: "oklch(0.65 0.22 260)" } : {}}>
+                            {key.key}
+                          </span>
                           <button onClick={() => copyKey(key.key)} className="opacity-40 hover:opacity-100 transition-opacity p-1">
                             <Copy className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.22 260)" }} />
                           </button>
@@ -191,9 +196,15 @@ export default function Keys() {
                       </td>
                       <td className="px-4 py-4" data-label="Status"><StatusPill status={key.status} /></td>
                       <td className="px-4 py-4" data-label="Package">
-                        <span className="text-xs px-2 py-1 rounded font-medium" style={{ background: "oklch(0.16 0.02 260)", color: "oklch(0.7 0.02 260)" }}>
-                          {pkg?.name || `#${key.packageId}`}
-                        </span>
+                        {key.isUniversal ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter" style={{ background: "oklch(0.65 0.22 260)", color: "white" }}>
+                            UNIVERSAL
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2 py-1 rounded font-medium" style={{ background: "oklch(0.16 0.02 260)", color: "oklch(0.7 0.02 260)" }}>
+                            {pkg?.name || `#${key.packageId}`}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-4" data-label="Duração">
                         <span className="font-mono text-xs" style={{ color: "oklch(0.7 0.15 260)" }}>{key.duration}</span>
@@ -266,34 +277,63 @@ export default function Keys() {
             <DialogTitle style={{ color: "oklch(0.95 0.01 260)" }}>Gerar Novas Keys</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Prefixo</Label>
-                <Select value={form.prefix} onValueChange={v => setForm({ ...form, prefix: v })}>
-                  <SelectTrigger style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
-                    {prefixes.map((p: any) => (
-                      <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {user?.role === "admin" && (
+              <div className="flex items-center gap-2 mb-2 p-3 rounded-lg border border-[oklch(0.65_0.22_260/0.2)] bg-[oklch(0.65_0.22_260/0.05)]">
+                <input
+                  type="checkbox"
+                  id="isUniversal"
+                  checked={form.isUniversal}
+                  onChange={e => setForm({ ...form, isUniversal: e.target.checked })}
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="isUniversal" className="font-bold cursor-pointer" style={{ color: "oklch(0.65 0.22 260)" }}>
+                  GERAR KEY UNIVERSAL (Funciona em todos os packages)
+                </Label>
               </div>
-              <div className="space-y-2">
-                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Package</Label>
-                <Select value={form.packageId} onValueChange={v => setForm({ ...form, packageId: v })}>
-                  <SelectTrigger style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
-                    {packages.map((p: any) => (
-                      <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            )}
+
+            {!form.isUniversal && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label style={{ color: "oklch(0.7 0.02 260)" }}>Prefixo</Label>
+                  <Select value={form.prefix} onValueChange={v => setForm({ ...form, prefix: v })}>
+                    <SelectTrigger style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
+                      {prefixes.map((p: any) => (
+                        <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label style={{ color: "oklch(0.7 0.02 260)" }}>Package</Label>
+                  <Select value={form.packageId} onValueChange={v => setForm({ ...form, packageId: v })}>
+                    <SelectTrigger style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}>
+                      {packages.map((p: any) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+            )}
+
+            {user?.role === "admin" && (
+              <div className="space-y-2">
+                <Label style={{ color: "oklch(0.7 0.02 260)" }}>Nome Personalizado (Ex: TEST2026)</Label>
+                <Input
+                  placeholder="Deixe vazio para gerar aleatório"
+                  value={form.customSuffix}
+                  onChange={e => setForm({ ...form, customSuffix: e.target.value })}
+                  style={{ background: "oklch(0.15 0.02 260)", border: "1px solid oklch(0.25 0.02 260)" }}
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
