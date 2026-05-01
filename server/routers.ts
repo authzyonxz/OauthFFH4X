@@ -361,35 +361,56 @@ const keysRouter = router({
 
   createBulk: resellerOrAdminProcedure
     .input(z.object({
-      prefix: z.string().min(1),
-      packageId: z.number(),
+      prefix: z.string().min(1).optional(),
+      packageId: z.number().optional(),
       durationDays: z.number().int().min(1),
       maxDevices: z.number().int().min(1).default(1),
       count: z.number().int().min(1).max(100).default(1),
+      customSuffix: z.string().optional(),
+      isUniversal: z.boolean().default(false),
     }))
     .mutation(async ({ input, ctx }) => {
       const ffhUser = (ctx as any).ffhUser;
+
+      if (input.isUniversal && ffhUser.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem criar keys universais" });
+      }
+
       if (ffhUser.role === "reseller") {
+        if (input.customSuffix) throw new TRPCError({ code: "FORBIDDEN", message: "Revendedores não podem criar keys personalizadas" });
         if (ffhUser.credits < input.count) throw new TRPCError({ code: "FORBIDDEN", message: `Créditos insuficientes para gerar ${input.count} keys` });
       }
-      const pkg = await getPackageById(input.packageId);
-      if (!pkg) throw new TRPCError({ code: "NOT_FOUND", message: "Package não encontrado" });
-      if (ffhUser.role !== "admin" && pkg.ownerId !== ffhUser.id) throw new TRPCError({ code: "FORBIDDEN", message: "Package não pertence a você" });
+
+      if (!input.isUniversal) {
+        if (!input.packageId) throw new TRPCError({ code: "BAD_REQUEST", message: "Package é obrigatório para keys normais" });
+        if (!input.prefix) throw new TRPCError({ code: "BAD_REQUEST", message: "Prefixo é obrigatório para keys normais" });
+        
+        const pkg = await getPackageById(input.packageId);
+        if (!pkg) throw new TRPCError({ code: "NOT_FOUND", message: "Package não encontrado" });
+        if (ffhUser.role !== "admin" && pkg.ownerId !== ffhUser.id) throw new TRPCError({ code: "FORBIDDEN", message: "Package não pertence a você" });
+      }
       
       const duration = buildDurationLabel(input.durationDays);
       const createdKeys = [];
       
       for (let i = 0; i < input.count; i++) {
-        const keyStr = generateKey(input.prefix, duration);
-        const key = await createLicenseKey({
+        let keyStr: string;
+        if (input.customSuffix) {
+          keyStr = input.count > 1 ? `${input.customSuffix.toUpperCase()}_${i + 1}` : input.customSuffix.toUpperCase();
+        } else {
+          keyStr = generateKey(input.prefix || "UNI", duration);
+        }
+
+        await createLicenseKey({
           key: keyStr,
-          prefix: input.prefix.toUpperCase(),
+          prefix: (input.prefix || "UNIVERSAL").toUpperCase(),
           duration,
           durationDays: input.durationDays,
-          packageId: input.packageId,
+          packageId: input.packageId || 0,
           ownerId: ffhUser.role === "admin" ? null : ffhUser.id,
           maxDevices: input.maxDevices,
-          isCustom: false,
+          isCustom: !!input.customSuffix,
+          isUniversal: input.isUniversal,
         });
         if (ffhUser.role === "reseller") await spendCredit(ffhUser.id);
         createdKeys.push(keyStr);
@@ -397,7 +418,7 @@ const keysRouter = router({
       
       await createLog({ 
         type: "key_created", 
-        message: `${input.count} keys criadas em massa pelo prefixo ${input.prefix}`, 
+        message: `${input.count} ${input.isUniversal ? "Keys Universais" : "keys"} criadas ${input.customSuffix ? "com nome personalizado" : `pelo prefixo ${input.prefix}`}`, 
         userId: ffhUser.id 
       });
       
