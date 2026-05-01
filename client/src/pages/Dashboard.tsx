@@ -74,7 +74,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className={`grid grid-cols-2 ${user?.role === "admin" ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-4">
+      <div className={`grid grid-cols-2 ${user?.role === "admin" ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-4`}>
         {stats.map((stat, i) => (
           <div key={i} className="stat-card fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
             <div className="flex items-start justify-between">
