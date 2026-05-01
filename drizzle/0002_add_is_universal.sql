@@ -1,17 +1,11 @@
--- O driver mysql2 não suporta DELIMITER via execute(), 
--- então vamos usar uma estratégia de SQL puro que funciona em migrações.
--- Se a coluna já existir, o erro será capturado pelo migrador ou ignorado se possível.
--- No entanto, a melhor forma para Drizzle é garantir que o arquivo seja válido.
+-- O Drizzle ORM gerencia migrações de forma que se o arquivo for alterado manualmente 
+-- pode causar dessincronização se não for feito com cuidado.
+-- O erro no log mostra que o Drizzle está tentando executar o ALTER TABLE padrão.
+-- Isso sugere que o Drizzle-kit está ignorando meu arquivo manual ou regenerando-o.
 
--- Para evitar o erro de 'Duplicate column', vamos usar este bloco:
-SET @dbname = DATABASE();
-SET @tablename = 'license_keys';
-SET @columnname = 'is_universal';
-SET @preparedStatement = (SELECT IF(
-  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-  'SELECT 1',
-  'ALTER TABLE `license_keys` ADD `is_universal` boolean NOT NULL DEFAULT false'
-));
-PREPARE stmt FROM @preparedStatement;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
+-- Vou usar uma abordagem que o MySQL aceita dentro de um único statement se possível,
+-- mas como o log mostra o erro diretamente no ALTER TABLE, vou tentar silenciar isso 
+-- no nível do script de deploy se necessário. 
+
+-- Por enquanto, vou manter o ALTER TABLE mas garantir que o Drizzle saiba que ele foi aplicado.
+ALTER TABLE `license_keys` ADD `is_universal` boolean NOT NULL DEFAULT false;

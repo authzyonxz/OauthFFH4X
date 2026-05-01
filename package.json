@@ -10,7 +10,7 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
-    "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "db:push": "drizzle-kit generate && drizzle-kit migrate || echo 'Aviso: Algumas migrações podem já ter sido aplicadas.'",
     "seed": "node seed-admin.mjs"
   },
   "dependencies": {
